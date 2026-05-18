@@ -10,7 +10,7 @@ python_cmd="${PYTHON:-python3}"
 trace_dir="traces/generated"
 
 presets=("mixed" "read-heavy" "update-heavy")
-policies=("dram-lru" "naive-flash" "flashield-lite")
+policies=("dram-lru" "naive-flash" "flashield-lite" "flashield-ml")
 
 mkdir -p "$output_dir" "$trace_dir"
 

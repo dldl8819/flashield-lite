@@ -31,6 +31,8 @@ flash write bandwidth.
   - `naive-flash`: writes every `set` and `update` to simulated flash.
   - `flashield-lite`: stores objects in DRAM first, tracks simple per-object
     features, and admits stable read-worthy objects to simulated flash.
+  - `flashield-ml`: uses the same DRAM observation path with a small online
+    logistic flashiness model instead of only fixed thresholds.
 - Simulated flash storage:
   - logical object index with byte capacity,
   - physical bytes written,
@@ -45,7 +47,8 @@ flash write bandwidth.
 ## Simplifications
 
 - No real SSD I/O is performed.
-- The admission model is a heuristic, not a learned model.
+- The ML admission model is intentionally small and dependency-free. It is not
+  the full Flashield classifier or training pipeline from the paper.
 - Flash garbage collection, erase blocks, wear leveling, and device latency are not
   modeled.
 - CSV parsing intentionally supports only the documented simple trace format.
@@ -65,6 +68,17 @@ Defaults:
 - `min_reads = 2`
 - `max_updates = 1`
 - `min_age = 2`
+
+`flashield-ml` computes a flashiness score from:
+
+- read count,
+- object age,
+- object size,
+- update count.
+
+The model uses an online logistic update. Stable, read-worthy objects are treated
+as positive examples, while objects that are updated or deleted are treated as
+negative examples. The default admission threshold is `0.5`.
 
 ## Running
 
@@ -99,6 +113,12 @@ Run Flashield-lite:
 cargo run -- simulate --policy flashield-lite --trace traces/sample.csv --dram-capacity 1048576 --flash-capacity 10485760 --segment-size 1048576
 ```
 
+Run the ML admission policy:
+
+```bash
+cargo run -- simulate --policy flashield-ml --trace traces/sample.csv --ml-threshold 0.5 --ml-learning-rate 0.1
+```
+
 Print a machine-readable JSON report:
 
 ```bash
@@ -109,6 +129,12 @@ Optional Flashield-lite knobs:
 
 ```bash
 cargo run -- simulate --policy flashield-lite --trace traces/sample.csv --min-reads 3 --max-updates 0 --min-age 5
+```
+
+Optional Flashield-ML knobs:
+
+```bash
+cargo run -- simulate --policy flashield-ml --trace traces/sample.csv --ml-threshold 0.6 --ml-learning-rate 0.05
 ```
 
 Run tests:
@@ -196,15 +222,16 @@ the simulator. Because v0.1 writes full segments, small traces or partially fill
 final segments can show high write amplification.
 
 To compare admission behavior across policies, also compare `flash_bytes_written`.
-On update-heavy workloads, `flashield-lite` should write substantially fewer flash
-bytes than `naive-flash` because unstable objects remain in DRAM or are discarded
-instead of immediately being written to flash.
+On update-heavy workloads, `flashield-lite` and `flashield-ml` should write
+substantially fewer flash bytes than `naive-flash` because unstable objects remain
+in DRAM or are discarded instead of immediately being written to flash.
 
 ## Next Steps
 
 - Add trace streaming for very large files.
-- Add richer admission features such as inter-arrival time and object popularity
-  windows.
+- Add richer ML admission features such as inter-arrival time and object
+  popularity windows.
+- Add offline training and replay-based evaluation for the ML admission model.
 - Add configurable skewed Zipf-like access patterns.
 - Model flash invalidation, cleaning, and erase-block-level amplification.
 - Export reports as JSON or CSV for plotting.
