@@ -330,7 +330,9 @@ impl CachePolicy for FlashieldMlCache {
             Operation::Set => {
                 self.flash.delete(&event.key);
                 let existing = self.dram.remove(&event.key);
-                let update_count = existing.as_ref().map_or(0, |object| object.update_count + 1);
+                let update_count = existing
+                    .as_ref()
+                    .map_or(0, |object| object.update_count + 1);
                 if let Some(object) = existing {
                     self.train_from_outcome(&object, event.timestamp, true);
                 }
