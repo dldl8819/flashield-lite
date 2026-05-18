@@ -130,7 +130,15 @@ On Unix-like shells:
 ```
 
 The scripts generate deterministic traces under `traces/generated/` and JSON
-reports under `results/`. Both directories are ignored by Git.
+reports under `results/`. They also write `results/summary.csv` for quick policy
+comparison. Both directories are ignored by Git. The summary step uses Python 3
+standard-library modules only.
+
+Summarize existing JSON reports again:
+
+```bash
+python scripts/summarize_results.py --input-dir results --output results/summary.csv
+```
 
 ## Example Output
 
@@ -198,6 +206,5 @@ instead of immediately being written to flash.
 - Add richer admission features such as inter-arrival time and object popularity
   windows.
 - Add configurable skewed Zipf-like access patterns.
-- Add summary tooling to compare JSON reports in one table.
 - Model flash invalidation, cleaning, and erase-block-level amplification.
 - Export reports as JSON or CSV for plotting.

@@ -3,7 +3,8 @@ param(
     [int]$Requests = 10000,
     [int]$DramCapacity = 1048576,
     [int]$FlashCapacity = 10485760,
-    [int]$SegmentSize = 1048576
+    [int]$SegmentSize = 1048576,
+    [string]$Python = "python"
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,3 +39,6 @@ foreach ($preset in $presets) {
         Write-Host "wrote $reportPath"
     }
 }
+
+$summaryPath = Join-Path $OutputDir "summary.csv"
+& $Python scripts/summarize_results.py --input-dir $OutputDir --output $summaryPath
