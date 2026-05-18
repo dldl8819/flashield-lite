@@ -40,3 +40,7 @@ done
 "$python_cmd" scripts/summarize_results.py \
     --input-dir "$output_dir" \
     --output "$output_dir/summary.csv"
+
+"$python_cmd" scripts/summary_to_markdown.py \
+    --input "$output_dir/summary.csv" \
+    --output "$output_dir/summary.md"

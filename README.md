@@ -156,15 +156,24 @@ On Unix-like shells:
 ```
 
 The scripts generate deterministic traces under `traces/generated/` and JSON
-reports under `results/`. They also write `results/summary.csv` for quick policy
-comparison. Both directories are ignored by Git. The summary step uses Python 3
-standard-library modules only.
+reports under `results/`. They also write `results/summary.csv` and
+`results/summary.md` for quick policy comparison. Both directories are ignored by
+Git. The summary steps use Python 3 standard-library modules only.
 
 Summarize existing JSON reports again:
 
 ```bash
 python scripts/summarize_results.py --input-dir results --output results/summary.csv
 ```
+
+Convert an existing CSV summary to a Markdown table:
+
+```bash
+python scripts/summary_to_markdown.py --input results/summary.csv --output results/summary.md
+```
+
+See [docs/experiments.md](docs/experiments.md) for the comparison workflow and
+interpretation guide.
 
 ## Example Output
 

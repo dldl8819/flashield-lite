@@ -1,6 +1,8 @@
 /target/
 /results/
 /traces/generated/
+__pycache__/
+*.pyc
 
 # Local environment files must not be committed.
 .env

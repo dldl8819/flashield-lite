@@ -42,3 +42,6 @@ foreach ($preset in $presets) {
 
 $summaryPath = Join-Path $OutputDir "summary.csv"
 & $Python scripts/summarize_results.py --input-dir $OutputDir --output $summaryPath
+
+$markdownPath = Join-Path $OutputDir "summary.md"
+& $Python scripts/summary_to_markdown.py --input $summaryPath --output $markdownPath
