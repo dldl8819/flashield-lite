@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $presets = @("mixed", "read-heavy", "update-heavy")
-$policies = @("dram-lru", "naive-flash", "flashield-lite")
+$policies = @("dram-lru", "naive-flash", "flashield-lite", "flashield-ml")
 $traceDir = Join-Path "traces" "generated"
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null

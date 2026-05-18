@@ -81,9 +81,28 @@ Updates invalidate any old flash copy and mark the DRAM object as not currently
 admitted. The object's `update_count` rises, so frequent changes suppress future
 admission.
 
+### Flashield-ML
+
+`flashield-ml` keeps the same DRAM-first observation path, but replaces the final
+fixed admission decision with a small online logistic model. The model scores an
+object with normalized features derived from:
+
+- read count,
+- age,
+- size,
+- update count.
+
+The score approximates the Flashield paper's flashiness idea: an object is a
+better flash candidate when it is likely to be read again and unlikely to be
+modified soon. Objects that survive in DRAM with enough reads become positive
+training examples. Objects that are updated or deleted become negative examples.
+
+This keeps v0.1 dependency-free while making the admission decision learned
+rather than purely hand-coded.
+
 ## Admission Policy
 
-The v0.1 admission heuristic is:
+The `flashield-lite` admission heuristic is:
 
 ```text
 read_count >= min_reads
@@ -94,6 +113,16 @@ age >= min_age
 This is deliberately simple. It captures the central intuition that objects with
 some read evidence and few updates are better flash candidates than objects that
 are being rewritten frequently.
+
+The `flashield-ml` policy uses `min_reads`, `max_updates`, and `min_age` to label
+online training examples. Admission itself is controlled by:
+
+```text
+flashiness_score >= ml_threshold
+```
+
+`--ml-learning-rate` controls how quickly model weights move after each labeled
+example.
 
 ## Simulated Flash Model
 
@@ -142,8 +171,8 @@ the current policy matrix across the synthetic workload presets:
 - `update-heavy`
 
 For each preset, the scripts generate a trace under `traces/generated/` and run
-`dram-lru`, `naive-flash`, and `flashield-lite`. Reports are emitted as JSON
-under `results/`.
+`dram-lru`, `naive-flash`, `flashield-lite`, and `flashield-ml`. Reports are
+emitted as JSON under `results/`.
 
 `scripts/summarize_results.py` reads those JSON reports and writes
 `results/summary.csv`, which is useful for comparing hit rate, flash bytes
@@ -163,7 +192,9 @@ If no bytes are admitted to flash, write amplification is reported as `0.0`.
 - No real device I/O, latency, wear, erase blocks, or garbage collection.
 - Segment writes are a simple accounting model.
 - The final partial segment is charged as a full segment.
-- The admission policy is hand-tuned and not learned from traces.
+- The ML policy learns online from a single replay, not from a separate offline
+  training corpus.
+- The ML features are intentionally minimal and do not match the full paper.
 - The parser supports only simple comma-separated fields without quoting.
 - Flash capacity eviction is object-level LRU, not segment cleaning.
 - The generator produces only synthetic keys and deterministic preset workloads.

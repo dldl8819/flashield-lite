@@ -12,7 +12,10 @@ use std::io::{BufWriter, Write as _};
 use std::path::PathBuf;
 
 use metrics::Metrics;
-use policy::{CachePolicy, DramLruCache, FlashieldConfig, FlashieldLiteCache, NaiveFlashCache};
+use policy::{
+    CachePolicy, DramLruCache, FlashieldConfig, FlashieldLiteCache, FlashieldMlCache, MlConfig,
+    NaiveFlashCache,
+};
 
 const DEFAULT_DRAM_CAPACITY: u64 = 1024 * 1024;
 const DEFAULT_FLASH_CAPACITY: u64 = 10 * 1024 * 1024;
@@ -20,6 +23,8 @@ const DEFAULT_SEGMENT_SIZE: u64 = 1024 * 1024;
 const DEFAULT_MIN_READS: u64 = 2;
 const DEFAULT_MAX_UPDATES: u64 = 1;
 const DEFAULT_MIN_AGE: u64 = 2;
+const DEFAULT_ML_THRESHOLD: f64 = 0.5;
+const DEFAULT_ML_LEARNING_RATE: f64 = 0.1;
 
 fn main() {
     if let Err(err) = run(env::args().collect()) {
@@ -80,6 +85,25 @@ fn simulate(args: &[String]) -> Result<(), Box<dyn Error>> {
                 min_age: options.min_age,
             };
             let mut cache = FlashieldLiteCache::new(config);
+            for event in &events {
+                cache.handle(event, &mut metrics);
+            }
+            cache.finish(&mut metrics);
+        }
+        "flashield-ml" => {
+            let config = MlConfig {
+                flashield: FlashieldConfig {
+                    dram_capacity: options.dram_capacity,
+                    flash_capacity: options.flash_capacity,
+                    segment_size: options.segment_size,
+                    min_reads: options.min_reads,
+                    max_updates: options.max_updates,
+                    min_age: options.min_age,
+                },
+                threshold: options.ml_threshold,
+                learning_rate: options.ml_learning_rate,
+            };
+            let mut cache = FlashieldMlCache::new(config);
             for event in &events {
                 cache.handle(event, &mut metrics);
             }
@@ -263,6 +287,8 @@ struct SimulateOptions {
     min_reads: u64,
     max_updates: u64,
     min_age: u64,
+    ml_threshold: f64,
+    ml_learning_rate: f64,
 }
 
 impl SimulateOptions {
@@ -290,10 +316,22 @@ impl SimulateOptions {
             .optional_u64("--max-updates")?
             .unwrap_or(DEFAULT_MAX_UPDATES);
         let min_age = parser.optional_u64("--min-age")?.unwrap_or(DEFAULT_MIN_AGE);
+        let ml_threshold = parser
+            .optional_f64("--ml-threshold")?
+            .unwrap_or(DEFAULT_ML_THRESHOLD);
+        let ml_learning_rate = parser
+            .optional_f64("--ml-learning-rate")?
+            .unwrap_or(DEFAULT_ML_LEARNING_RATE);
         parser.finish()?;
 
         if segment_size == 0 {
             return Err("--segment-size must be greater than zero".into());
+        }
+        if !(0.0..=1.0).contains(&ml_threshold) {
+            return Err("--ml-threshold must be between 0.0 and 1.0".into());
+        }
+        if ml_learning_rate <= 0.0 {
+            return Err("--ml-learning-rate must be greater than zero".into());
         }
 
         Ok(Self {
@@ -306,6 +344,8 @@ impl SimulateOptions {
             min_reads,
             max_updates,
             min_age,
+            ml_threshold,
+            ml_learning_rate,
         })
     }
 }
@@ -455,6 +495,16 @@ impl<'a> ArgParser<'a> {
             .transpose()
     }
 
+    fn optional_f64(&mut self, flag: &str) -> Result<Option<f64>, Box<dyn Error>> {
+        self.optional(flag)?
+            .map(|value| {
+                value
+                    .parse::<f64>()
+                    .map_err(|_| format!("{flag} must be a number").into())
+            })
+            .transpose()
+    }
+
     fn optional(&mut self, flag: &str) -> Result<Option<String>, Box<dyn Error>> {
         for index in 0..self.args.len() {
             if self.used[index] || self.args[index] != flag {
@@ -513,7 +563,7 @@ impl Lcg {
 
 fn usage() -> &'static str {
     "Usage:
-  cargo run -- simulate --policy <dram-lru|naive-flash|flashield-lite> --trace <path> [options]
+  cargo run -- simulate --policy <dram-lru|naive-flash|flashield-lite|flashield-ml> --trace <path> [options]
   cargo run -- generate-trace --output <path> [--requests <n>] [--keys <n>] [--preset <preset>]
 
 Options:
@@ -524,7 +574,9 @@ Options:
   --preset <preset>         Trace preset: mixed, read-heavy, or update-heavy, default mixed
   --min-reads <n>           Flashield-lite admission threshold, default 2
   --max-updates <n>         Flashield-lite admission threshold, default 1
-  --min-age <ticks>         Flashield-lite admission threshold, default 2"
+  --min-age <ticks>         Flashield-lite admission threshold, default 2
+  --ml-threshold <n>        Flashield-ML admission score threshold, default 0.5
+  --ml-learning-rate <n>    Flashield-ML online learning rate, default 0.1"
 }
 
 #[cfg(test)]
