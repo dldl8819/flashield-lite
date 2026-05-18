@@ -185,7 +185,9 @@ impl SimulateOptions {
         let segment_size = parser
             .optional_u64("--segment-size")?
             .unwrap_or(DEFAULT_SEGMENT_SIZE);
-        let min_reads = parser.optional_u64("--min-reads")?.unwrap_or(DEFAULT_MIN_READS);
+        let min_reads = parser
+            .optional_u64("--min-reads")?
+            .unwrap_or(DEFAULT_MIN_READS);
         let max_updates = parser
             .optional_u64("--max-updates")?
             .unwrap_or(DEFAULT_MAX_UPDATES);
