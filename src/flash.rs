@@ -60,10 +60,7 @@ impl SimulatedFlash {
             self.segment_flushes += 1;
         }
 
-        self.index
-            .insert(key, FlashObject::new(size))
-            .into_iter()
-            .count()
+        self.index.insert(key, FlashObject::new(size)).len()
     }
 
     pub fn delete(&mut self, key: &str) {

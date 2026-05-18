@@ -239,8 +239,7 @@ impl CachePolicy for FlashieldLiteCache {
                 let update_count = self
                     .dram
                     .remove(&event.key)
-                    .map(|object| object.update_count + 1)
-                    .unwrap_or(0);
+                    .map_or(0, |object| object.update_count + 1);
                 let object = TrackedObject::new(event.size, event.timestamp, update_count);
                 self.insert_tracked(event.key.clone(), object, event.timestamp, metrics);
             }
@@ -336,8 +335,7 @@ mod tests {
 
     #[test]
     fn update_heavy_workload_writes_less_with_flashield_lite() {
-        let mut events = Vec::new();
-        events.push(trace_event(1, Operation::Set, "synthetic:1", 128));
+        let mut events = vec![trace_event(1, Operation::Set, "synthetic:1", 128)];
         for timestamp in 2..=40 {
             let op = if timestamp % 2 == 0 {
                 Operation::Update

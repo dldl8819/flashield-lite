@@ -109,10 +109,12 @@ fn print_report(policy: &str, metrics: &Metrics) {
 
 fn generate_trace(args: &[String]) -> Result<(), Box<dyn Error>> {
     let options = GenerateOptions::parse(args)?;
-    if let Some(parent) = options.output.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = options
+        .output
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)?;
     }
 
     let file = File::create(&options.output)?;
