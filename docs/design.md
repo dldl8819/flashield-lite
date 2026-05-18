@@ -10,7 +10,7 @@
   index.
 - `policy`: implements the cache policies.
 - `metrics`: accumulates simulation counters and derived rates.
-- `main`: parses CLI arguments, runs commands, and prints reports.
+- `main`: parses CLI arguments, runs commands, and prints text or JSON reports.
 
 The simulator loads a trace, feeds each event into one selected policy, finalizes
 any buffered flash segment, and prints a report.
@@ -114,6 +114,10 @@ The report includes:
 - write amplification,
 - segment flushes,
 - evictions.
+
+Reports default to human-readable text. Passing `--output-format json` emits the
+same counters as a machine-readable JSON object for scripts, dashboards, or
+experiment notebooks.
 
 Write amplification is:
 

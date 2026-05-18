@@ -1,5 +1,7 @@
 # flashield-lite
 
+[![Rust CI](https://github.com/dldl8819/flashield-lite/actions/workflows/ci.yml/badge.svg)](https://github.com/dldl8819/flashield-lite/actions/workflows/ci.yml)
+
 `flashield-lite` is a small Rust research and portfolio project inspired by the paper
 *Flashield: a Hybrid Key-value Cache that Controls Flash Write Amplification*.
 
@@ -34,6 +36,7 @@ flash write bandwidth.
   - physical bytes written,
   - sequential segment buffering,
   - segment flush counts.
+- Text and JSON simulation reports.
 - Deterministic synthetic trace generator.
 - Unit tests for parsing, LRU eviction, flash accounting, admission, and workload
   behavior.
@@ -88,6 +91,12 @@ Run Flashield-lite:
 cargo run -- simulate --policy flashield-lite --trace traces/sample.csv --dram-capacity 1048576 --flash-capacity 10485760 --segment-size 1048576
 ```
 
+Print a machine-readable JSON report:
+
+```bash
+cargo run -- simulate --policy flashield-lite --trace traces/sample.csv --output-format json
+```
+
 Optional Flashield-lite knobs:
 
 ```bash
@@ -101,6 +110,8 @@ cargo test
 ```
 
 ## Example Output
+
+Text report:
 
 ```text
 Policy: flashield-lite
@@ -116,6 +127,26 @@ Logical bytes admitted: 1636288
 Write amplification: 1.28
 Segment flushes: 2
 Evictions: 0
+```
+
+JSON report:
+
+```json
+{
+  "policy": "flashield-lite",
+  "total_requests": 10000,
+  "lookup_requests": 5012,
+  "cache_hits": 2419,
+  "cache_misses": 2593,
+  "hit_rate": 0.482642,
+  "dram_hits": 1834,
+  "flash_hits": 585,
+  "flash_bytes_written": 2097152,
+  "logical_bytes_admitted": 1636288,
+  "write_amplification": 1.281656,
+  "segment_flushes": 2,
+  "evictions": 0
+}
 ```
 
 Exact numbers depend on the trace and configuration.

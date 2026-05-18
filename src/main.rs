@@ -6,8 +6,9 @@ mod trace;
 
 use std::env;
 use std::error::Error;
+use std::fmt::Write as _;
 use std::fs::{self, File};
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Write as _};
 use std::path::PathBuf;
 
 use metrics::Metrics;
@@ -87,24 +88,107 @@ fn simulate(args: &[String]) -> Result<(), Box<dyn Error>> {
         other => return Err(format!("unknown policy: {other}").into()),
     }
 
-    print_report(&options.policy, &metrics);
+    match options.output_format {
+        OutputFormat::Text => print!("{}", format_text_report(&options.policy, &metrics)),
+        OutputFormat::Json => print!("{}", format_json_report(&options.policy, &metrics)),
+    }
     Ok(())
 }
 
-fn print_report(policy: &str, metrics: &Metrics) {
-    println!("Policy: {policy}");
-    println!("Total requests: {}", metrics.total_requests);
-    println!("Lookup requests: {}", metrics.lookup_requests);
-    println!("Cache hits: {}", metrics.cache_hits);
-    println!("Cache misses: {}", metrics.cache_misses);
-    println!("Hit rate: {:.2}%", metrics.hit_rate() * 100.0);
-    println!("DRAM hits: {}", metrics.dram_hits);
-    println!("Flash hits: {}", metrics.flash_hits);
-    println!("Flash bytes written: {}", metrics.flash_bytes_written);
-    println!("Logical bytes admitted: {}", metrics.logical_bytes_admitted);
-    println!("Write amplification: {:.2}", metrics.write_amplification());
-    println!("Segment flushes: {}", metrics.segment_flushes);
-    println!("Evictions: {}", metrics.evictions);
+fn format_text_report(policy: &str, metrics: &Metrics) -> String {
+    let mut report = String::new();
+    writeln!(&mut report, "Policy: {policy}").expect("write to String should not fail");
+    writeln!(&mut report, "Total requests: {}", metrics.total_requests)
+        .expect("write to String should not fail");
+    writeln!(&mut report, "Lookup requests: {}", metrics.lookup_requests)
+        .expect("write to String should not fail");
+    writeln!(&mut report, "Cache hits: {}", metrics.cache_hits)
+        .expect("write to String should not fail");
+    writeln!(&mut report, "Cache misses: {}", metrics.cache_misses)
+        .expect("write to String should not fail");
+    writeln!(&mut report, "Hit rate: {:.2}%", metrics.hit_rate() * 100.0)
+        .expect("write to String should not fail");
+    writeln!(&mut report, "DRAM hits: {}", metrics.dram_hits)
+        .expect("write to String should not fail");
+    writeln!(&mut report, "Flash hits: {}", metrics.flash_hits)
+        .expect("write to String should not fail");
+    writeln!(
+        &mut report,
+        "Flash bytes written: {}",
+        metrics.flash_bytes_written
+    )
+    .expect("write to String should not fail");
+    writeln!(
+        &mut report,
+        "Logical bytes admitted: {}",
+        metrics.logical_bytes_admitted
+    )
+    .expect("write to String should not fail");
+    writeln!(
+        &mut report,
+        "Write amplification: {:.2}",
+        metrics.write_amplification()
+    )
+    .expect("write to String should not fail");
+    writeln!(&mut report, "Segment flushes: {}", metrics.segment_flushes)
+        .expect("write to String should not fail");
+    writeln!(&mut report, "Evictions: {}", metrics.evictions)
+        .expect("write to String should not fail");
+    report
+}
+
+fn format_json_report(policy: &str, metrics: &Metrics) -> String {
+    format!(
+        concat!(
+            "{{\n",
+            "  \"policy\": \"{}\",\n",
+            "  \"total_requests\": {},\n",
+            "  \"lookup_requests\": {},\n",
+            "  \"cache_hits\": {},\n",
+            "  \"cache_misses\": {},\n",
+            "  \"hit_rate\": {:.6},\n",
+            "  \"dram_hits\": {},\n",
+            "  \"flash_hits\": {},\n",
+            "  \"flash_bytes_written\": {},\n",
+            "  \"logical_bytes_admitted\": {},\n",
+            "  \"write_amplification\": {:.6},\n",
+            "  \"segment_flushes\": {},\n",
+            "  \"evictions\": {}\n",
+            "}}\n"
+        ),
+        escape_json_string(policy),
+        metrics.total_requests,
+        metrics.lookup_requests,
+        metrics.cache_hits,
+        metrics.cache_misses,
+        metrics.hit_rate(),
+        metrics.dram_hits,
+        metrics.flash_hits,
+        metrics.flash_bytes_written,
+        metrics.logical_bytes_admitted,
+        metrics.write_amplification(),
+        metrics.segment_flushes,
+        metrics.evictions
+    )
+}
+
+fn escape_json_string(value: &str) -> String {
+    let mut escaped = String::new();
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            character if character.is_control() => {
+                write!(&mut escaped, "\\u{:04x}", character as u32)
+                    .expect("write to String should not fail");
+            }
+            character => escaped.push(character),
+        }
+    }
+    escaped
 }
 
 fn generate_trace(args: &[String]) -> Result<(), Box<dyn Error>> {
@@ -165,6 +249,7 @@ fn synthetic_size(rng: &mut Lcg) -> u64 {
 struct SimulateOptions {
     policy: String,
     trace: PathBuf,
+    output_format: OutputFormat,
     dram_capacity: u64,
     flash_capacity: u64,
     segment_size: u64,
@@ -178,6 +263,10 @@ impl SimulateOptions {
         let mut parser = ArgParser::new(args);
         let policy = parser.required("--policy")?;
         let trace = PathBuf::from(parser.required("--trace")?);
+        let output_format = match parser.optional("--output-format")? {
+            Some(value) => OutputFormat::parse(&value)?,
+            None => OutputFormat::Text,
+        };
         let dram_capacity = parser
             .optional_u64("--dram-capacity")?
             .unwrap_or(DEFAULT_DRAM_CAPACITY);
@@ -203,6 +292,7 @@ impl SimulateOptions {
         Ok(Self {
             policy,
             trace,
+            output_format,
             dram_capacity,
             flash_capacity,
             segment_size,
@@ -210,6 +300,22 @@ impl SimulateOptions {
             max_updates,
             min_age,
         })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OutputFormat {
+    Text,
+    Json,
+}
+
+impl OutputFormat {
+    fn parse(value: &str) -> Result<Self, Box<dyn Error>> {
+        match value {
+            "text" => Ok(Self::Text),
+            "json" => Ok(Self::Json),
+            other => Err(format!("unsupported output format: {other}").into()),
+        }
     }
 }
 
@@ -329,7 +435,58 @@ Options:
   --dram-capacity <bytes>   DRAM cache capacity, default 1048576
   --flash-capacity <bytes>  Flash cache capacity, default 10485760
   --segment-size <bytes>    Simulated flash segment size, default 1048576
+  --output-format <format>  Report format: text or json, default text
   --min-reads <n>           Flashield-lite admission threshold, default 2
   --max-updates <n>         Flashield-lite admission threshold, default 1
   --min-age <ticks>         Flashield-lite admission threshold, default 2"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_json_report, format_text_report};
+    use crate::metrics::Metrics;
+
+    #[test]
+    fn text_report_includes_human_readable_metrics() {
+        let metrics = Metrics {
+            total_requests: 10,
+            lookup_requests: 4,
+            cache_hits: 3,
+            cache_misses: 1,
+            dram_hits: 2,
+            flash_hits: 1,
+            flash_bytes_written: 128,
+            logical_bytes_admitted: 64,
+            segment_flushes: 2,
+            evictions: 1,
+        };
+
+        let report = format_text_report("flashield-lite", &metrics);
+
+        assert!(report.contains("Policy: flashield-lite"));
+        assert!(report.contains("Hit rate: 75.00%"));
+        assert!(report.contains("Write amplification: 2.00"));
+    }
+
+    #[test]
+    fn json_report_includes_machine_readable_metrics() {
+        let metrics = Metrics {
+            total_requests: 10,
+            lookup_requests: 4,
+            cache_hits: 3,
+            cache_misses: 1,
+            dram_hits: 2,
+            flash_hits: 1,
+            flash_bytes_written: 128,
+            logical_bytes_admitted: 64,
+            segment_flushes: 2,
+            evictions: 1,
+        };
+
+        let report = format_json_report("flashield-lite", &metrics);
+
+        assert!(report.contains("\"policy\": \"flashield-lite\""));
+        assert!(report.contains("\"hit_rate\": 0.750000"));
+        assert!(report.contains("\"write_amplification\": 2.000000"));
+    }
 }
