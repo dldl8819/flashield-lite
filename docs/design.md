@@ -32,6 +32,19 @@ Supported operations are:
 
 The parser is intentionally strict and does not support quoted CSV fields in v0.1.
 
+## Workload Generator
+
+`generate-trace` creates deterministic synthetic traces using a fixed seed. The
+`--preset` option controls the operation mix:
+
+- `mixed`: balanced default workload with reads, writes, updates, and deletes.
+- `read-heavy`: emphasizes repeated `get` operations for stable hot objects.
+- `update-heavy`: emphasizes repeated `update` operations to stress flash write
+  admission decisions.
+
+Unknown keys are always introduced with `set` before they can receive `get`,
+`update`, or `delete` operations.
+
 ## Cache Policies
 
 ### DRAM-only LRU
@@ -135,4 +148,4 @@ If no bytes are admitted to flash, write amplification is reported as `0.0`.
 - The admission policy is hand-tuned and not learned from traces.
 - The parser supports only simple comma-separated fields without quoting.
 - Flash capacity eviction is object-level LRU, not segment cleaning.
-- The generator produces only synthetic keys and deterministic workloads.
+- The generator produces only synthetic keys and deterministic preset workloads.

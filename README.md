@@ -37,7 +37,8 @@ flash write bandwidth.
   - sequential segment buffering,
   - segment flush counts.
 - Text and JSON simulation reports.
-- Deterministic synthetic trace generator.
+- Deterministic synthetic trace generator with mixed, read-heavy, and
+  update-heavy workload presets.
 - Unit tests for parsing, LRU eviction, flash accounting, admission, and workload
   behavior.
 
@@ -71,6 +72,13 @@ Generate a synthetic trace:
 
 ```bash
 cargo run -- generate-trace --output traces/sample.csv --requests 10000
+```
+
+Generate traces for specific workload shapes:
+
+```bash
+cargo run -- generate-trace --output traces/read-heavy.csv --requests 10000 --preset read-heavy
+cargo run -- generate-trace --output traces/update-heavy.csv --requests 10000 --preset update-heavy
 ```
 
 Run the DRAM-only baseline:
@@ -174,7 +182,6 @@ instead of immediately being written to flash.
 - Add trace streaming for very large files.
 - Add richer admission features such as inter-arrival time and object popularity
   windows.
-- Add configurable workload generators for read-heavy, update-heavy, and skewed
-  Zipf-like access patterns.
+- Add configurable skewed Zipf-like access patterns.
 - Model flash invalidation, cleaning, and erase-block-level amplification.
 - Export reports as JSON or CSV for plotting.
