@@ -1,0 +1,8 @@
+[package]
+name = "flashield-lite"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "A simplified trace-driven cache simulator inspired by Flashield."
+
+[dependencies]

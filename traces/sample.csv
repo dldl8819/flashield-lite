@@ -1,0 +1,11 @@
+timestamp,op,key,size
+1,set,synthetic:1,128
+2,get,synthetic:1,0
+3,get,synthetic:1,0
+4,set,synthetic:2,256
+5,get,synthetic:2,0
+6,update,synthetic:2,512
+7,get,synthetic:2,0
+8,delete,synthetic:1,0
+9,get,synthetic:1,0
+10,get,synthetic:2,0
