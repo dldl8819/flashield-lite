@@ -109,10 +109,12 @@ fn print_report(policy: &str, metrics: &Metrics) {
 
 fn generate_trace(args: &[String]) -> Result<(), Box<dyn Error>> {
     let options = GenerateOptions::parse(args)?;
-    if let Some(parent) = options.output.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = options
+        .output
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)?;
     }
 
     let file = File::create(&options.output)?;
@@ -185,7 +187,9 @@ impl SimulateOptions {
         let segment_size = parser
             .optional_u64("--segment-size")?
             .unwrap_or(DEFAULT_SEGMENT_SIZE);
-        let min_reads = parser.optional_u64("--min-reads")?.unwrap_or(DEFAULT_MIN_READS);
+        let min_reads = parser
+            .optional_u64("--min-reads")?
+            .unwrap_or(DEFAULT_MIN_READS);
         let max_updates = parser
             .optional_u64("--max-updates")?
             .unwrap_or(DEFAULT_MAX_UPDATES);
