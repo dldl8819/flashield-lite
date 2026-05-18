@@ -117,6 +117,21 @@ Run tests:
 cargo test
 ```
 
+Run the policy comparison experiment matrix:
+
+```powershell
+./scripts/run_experiments.ps1
+```
+
+On Unix-like shells:
+
+```bash
+./scripts/run_experiments.sh
+```
+
+The scripts generate deterministic traces under `traces/generated/` and JSON
+reports under `results/`. Both directories are ignored by Git.
+
 ## Example Output
 
 Text report:
@@ -183,5 +198,6 @@ instead of immediately being written to flash.
 - Add richer admission features such as inter-arrival time and object popularity
   windows.
 - Add configurable skewed Zipf-like access patterns.
+- Add summary tooling to compare JSON reports in one table.
 - Model flash invalidation, cleaning, and erase-block-level amplification.
 - Export reports as JSON or CSV for plotting.

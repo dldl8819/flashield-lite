@@ -132,6 +132,20 @@ Reports default to human-readable text. Passing `--output-format json` emits the
 same counters as a machine-readable JSON object for scripts, dashboards, or
 experiment notebooks.
 
+## Experiment Scripts
+
+The `scripts/run_experiments.ps1` and `scripts/run_experiments.sh` helpers run
+the current policy matrix across the synthetic workload presets:
+
+- `mixed`
+- `read-heavy`
+- `update-heavy`
+
+For each preset, the scripts generate a trace under `traces/generated/` and run
+`dram-lru`, `naive-flash`, and `flashield-lite`. Reports are emitted as JSON
+under `results/`. These directories are ignored because they are reproducible
+outputs, not source artifacts.
+
 Write amplification is:
 
 ```text

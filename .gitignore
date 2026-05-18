@@ -1,4 +1,6 @@
 /target/
+/results/
+/traces/generated/
 
 # Local environment files must not be committed.
 .env
