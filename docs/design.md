@@ -176,7 +176,9 @@ emitted as JSON under `results/`.
 
 `scripts/summarize_results.py` reads those JSON reports and writes
 `results/summary.csv`, which is useful for comparing hit rate, flash bytes
-written, and write amplification across policies. The generated directories are
+written, and write amplification across policies. `scripts/summary_to_markdown.py`
+converts that CSV into `results/summary.md` so the same comparison can be pasted
+into a README, Wiki page, or PR description. The generated directories are
 ignored because they are reproducible outputs, not source artifacts.
 
 Write amplification is:
