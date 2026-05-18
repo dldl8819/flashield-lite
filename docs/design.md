@@ -143,8 +143,12 @@ the current policy matrix across the synthetic workload presets:
 
 For each preset, the scripts generate a trace under `traces/generated/` and run
 `dram-lru`, `naive-flash`, and `flashield-lite`. Reports are emitted as JSON
-under `results/`. These directories are ignored because they are reproducible
-outputs, not source artifacts.
+under `results/`.
+
+`scripts/summarize_results.py` reads those JSON reports and writes
+`results/summary.csv`, which is useful for comparing hit rate, flash bytes
+written, and write amplification across policies. The generated directories are
+ignored because they are reproducible outputs, not source artifacts.
 
 Write amplification is:
 

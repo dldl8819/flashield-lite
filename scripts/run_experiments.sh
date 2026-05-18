@@ -6,6 +6,7 @@ requests="${REQUESTS:-10000}"
 dram_capacity="${DRAM_CAPACITY:-1048576}"
 flash_capacity="${FLASH_CAPACITY:-10485760}"
 segment_size="${SEGMENT_SIZE:-1048576}"
+python_cmd="${PYTHON:-python3}"
 trace_dir="traces/generated"
 
 presets=("mixed" "read-heavy" "update-heavy")
@@ -35,3 +36,7 @@ for preset in "${presets[@]}"; do
         echo "wrote $report_path"
     done
 done
+
+"$python_cmd" scripts/summarize_results.py \
+    --input-dir "$output_dir" \
+    --output "$output_dir/summary.csv"
