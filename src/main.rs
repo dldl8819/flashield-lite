@@ -213,24 +213,31 @@ fn generate_trace(args: &[String]) -> Result<(), Box<dyn Error>> {
         let key = format!("synthetic:{key_idx}");
         let roll = rng.range(100);
         let known_key = known[key_idx as usize];
+        let op = options.preset.choose_op(known_key, roll);
 
-        let (op, size) = if !known_key || roll < 20 {
-            known[key_idx as usize] = true;
-            ("set", synthetic_size(&mut rng))
-        } else if roll < 70 {
-            ("get", 0)
-        } else if roll < 92 {
-            ("update", synthetic_size(&mut rng))
-        } else {
-            known[key_idx as usize] = false;
-            ("delete", 0)
+        let size = match op {
+            GeneratedOp::Set => {
+                known[key_idx as usize] = true;
+                synthetic_size(&mut rng)
+            }
+            GeneratedOp::Get => 0,
+            GeneratedOp::Update => synthetic_size(&mut rng),
+            GeneratedOp::Delete => {
+                known[key_idx as usize] = false;
+                0
+            }
         };
 
-        writeln!(writer, "{timestamp},{op},{key},{size}")?;
+        let op_name = op.as_str();
+        writeln!(writer, "{timestamp},{op_name},{key},{size}")?;
     }
 
     writer.flush()?;
-    println!("Generated {} synthetic requests.", options.requests);
+    println!(
+        "Generated {} synthetic requests with the {} preset.",
+        options.requests,
+        options.preset.as_str()
+    );
     Ok(())
 }
 
@@ -324,6 +331,7 @@ struct GenerateOptions {
     output: PathBuf,
     requests: u64,
     keys: u64,
+    preset: WorkloadPreset,
 }
 
 impl GenerateOptions {
@@ -332,13 +340,90 @@ impl GenerateOptions {
         let output = PathBuf::from(parser.required("--output")?);
         let requests = parser.optional_u64("--requests")?.unwrap_or(10_000);
         let keys = parser.optional_u64("--keys")?.unwrap_or(1_000);
+        let preset = match parser.optional("--preset")? {
+            Some(value) => WorkloadPreset::parse(&value)?,
+            None => WorkloadPreset::Mixed,
+        };
         parser.finish()?;
 
         Ok(Self {
             output,
             requests,
             keys,
+            preset,
         })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WorkloadPreset {
+    Mixed,
+    ReadHeavy,
+    UpdateHeavy,
+}
+
+impl WorkloadPreset {
+    fn parse(value: &str) -> Result<Self, Box<dyn Error>> {
+        match value {
+            "mixed" => Ok(Self::Mixed),
+            "read-heavy" => Ok(Self::ReadHeavy),
+            "update-heavy" => Ok(Self::UpdateHeavy),
+            other => Err(format!("unsupported workload preset: {other}").into()),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Mixed => "mixed",
+            Self::ReadHeavy => "read-heavy",
+            Self::UpdateHeavy => "update-heavy",
+        }
+    }
+
+    fn choose_op(self, known_key: bool, roll: u64) -> GeneratedOp {
+        if !known_key {
+            return GeneratedOp::Set;
+        }
+
+        match self {
+            Self::Mixed => match roll {
+                0..=19 => GeneratedOp::Set,
+                20..=69 => GeneratedOp::Get,
+                70..=91 => GeneratedOp::Update,
+                _ => GeneratedOp::Delete,
+            },
+            Self::ReadHeavy => match roll {
+                0..=9 => GeneratedOp::Set,
+                10..=84 => GeneratedOp::Get,
+                85..=94 => GeneratedOp::Update,
+                _ => GeneratedOp::Delete,
+            },
+            Self::UpdateHeavy => match roll {
+                0..=14 => GeneratedOp::Set,
+                15..=34 => GeneratedOp::Get,
+                35..=89 => GeneratedOp::Update,
+                _ => GeneratedOp::Delete,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GeneratedOp {
+    Get,
+    Set,
+    Update,
+    Delete,
+}
+
+impl GeneratedOp {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "get",
+            Self::Set => "set",
+            Self::Update => "update",
+            Self::Delete => "delete",
+        }
     }
 }
 
@@ -429,13 +514,14 @@ impl Lcg {
 fn usage() -> &'static str {
     "Usage:
   cargo run -- simulate --policy <dram-lru|naive-flash|flashield-lite> --trace <path> [options]
-  cargo run -- generate-trace --output <path> [--requests <n>] [--keys <n>]
+  cargo run -- generate-trace --output <path> [--requests <n>] [--keys <n>] [--preset <preset>]
 
 Options:
   --dram-capacity <bytes>   DRAM cache capacity, default 1048576
   --flash-capacity <bytes>  Flash cache capacity, default 10485760
   --segment-size <bytes>    Simulated flash segment size, default 1048576
   --output-format <format>  Report format: text or json, default text
+  --preset <preset>         Trace preset: mixed, read-heavy, or update-heavy, default mixed
   --min-reads <n>           Flashield-lite admission threshold, default 2
   --max-updates <n>         Flashield-lite admission threshold, default 1
   --min-age <ticks>         Flashield-lite admission threshold, default 2"
@@ -443,7 +529,7 @@ Options:
 
 #[cfg(test)]
 mod tests {
-    use super::{format_json_report, format_text_report};
+    use super::{format_json_report, format_text_report, GeneratedOp, WorkloadPreset};
     use crate::metrics::Metrics;
 
     #[test]
@@ -488,5 +574,36 @@ mod tests {
         assert!(report.contains("\"policy\": \"flashield-lite\""));
         assert!(report.contains("\"hit_rate\": 0.750000"));
         assert!(report.contains("\"write_amplification\": 2.000000"));
+    }
+
+    #[test]
+    fn parses_workload_presets() {
+        assert_eq!(
+            WorkloadPreset::parse("mixed").unwrap(),
+            WorkloadPreset::Mixed
+        );
+        assert_eq!(
+            WorkloadPreset::parse("read-heavy").unwrap(),
+            WorkloadPreset::ReadHeavy
+        );
+        assert_eq!(
+            WorkloadPreset::parse("update-heavy").unwrap(),
+            WorkloadPreset::UpdateHeavy
+        );
+        assert!(WorkloadPreset::parse("unknown").is_err());
+    }
+
+    #[test]
+    fn workload_presets_choose_expected_operations() {
+        assert_eq!(WorkloadPreset::Mixed.choose_op(false, 99), GeneratedOp::Set);
+        assert_eq!(WorkloadPreset::Mixed.choose_op(true, 50), GeneratedOp::Get);
+        assert_eq!(
+            WorkloadPreset::ReadHeavy.choose_op(true, 80),
+            GeneratedOp::Get
+        );
+        assert_eq!(
+            WorkloadPreset::UpdateHeavy.choose_op(true, 80),
+            GeneratedOp::Update
+        );
     }
 }
